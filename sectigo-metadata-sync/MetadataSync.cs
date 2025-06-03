@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Copyright 2021 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -95,13 +102,13 @@ internal class MetadataSync
                            .Get<Config>()
                        ?? throw new InvalidOperationException("Missing config section in the config json file.");
             _ = config.GetSection("ManualFields")
-                               .Get<List<ManualField>>()
-                           ?? throw new InvalidOperationException(
-                               "Missing manual fields section in the fields json file.");
+                    .Get<List<ManualField>>()
+                ?? throw new InvalidOperationException(
+                    "Missing manual fields section in the fields json file.");
             _ = config.GetSection("CustomFields")
-                               .Get<List<CustomField>>()
-                           ?? throw new InvalidOperationException(
-                               "Missing custom fields section in the fields json file.");
+                    .Get<List<CustomField>>()
+                ?? throw new InvalidOperationException(
+                    "Missing custom fields section in the fields json file.");
             bannedCharList = config.GetSection("BannedCharacters")
                     .Get<List<CharDBItem>>() ?? new List<CharDBItem>()
                 ?? throw new InvalidOperationException("Missing banned characters section in the config json file.");
@@ -218,10 +225,7 @@ internal class MetadataSync
                 // Converts blank fields etc and preps the data.
                 unifiedFieldList = config.GetSection("CustomFields").Get<List<UnifiedFormatField>>() ??
                                    new List<UnifiedFormatField>();
-                foreach (var item in unifiedFieldList)
-                {
-                    item.ToolFieldType = UnifiedFieldType.Custom;
-                }
+                foreach (var item in unifiedFieldList) item.ToolFieldType = UnifiedFieldType.Custom;
             }
         }
         catch (InvalidOperationException ex)
@@ -255,14 +259,10 @@ internal class MetadataSync
         var restartRequired = false;
 
         if (settings.importAllCustomFields)
-        {
             BannedCharacters.CheckForChars(unifiedFieldList, bannedCharList, invalidCharacterDetails);
-        }
         else
-        {
             BannedCharacters.CheckForChars(unifiedFieldList, bannedCharList, invalidCharacterDetails, true);
-        }
-        
+
         foreach (var badchar in bannedCharList)
             if (badchar.replacementcharacter == "null")
                 restartRequired = true;
@@ -465,7 +465,7 @@ internal class MetadataSync
                                         if (field.KeyfactorDataType.Equals((int)MetadataDataType.Date))
                                         {
                                             // Define the expected date format
-                                            string dateFormat = settings.keyfactorDateFormat;
+                                            var dateFormat = settings.keyfactorDateFormat;
 
                                             if (DateTime.TryParseExact(localCustomField.Value, dateFormat, null,
                                                     DateTimeStyles.None, out var parsedDate))
