@@ -1,0 +1,19 @@
+{
+  "config": {
+    "sectigoLogin": "test@example.com",
+    "sectigoPassword": "*********",
+    "sectigoCustomerUri": "sectigo-customer",
+    "sectigoAPIUrl": "https://cert-manager.com",
+    "keyfactorLogin": "DOMAIN\\Username",
+    "keyfactorPassword": "********",
+    "keyfactorAPIUrl": "https://keyfactorexample.com/keyfactorapi",
+    "keyfactorDateFormat": "M/d/yyyy h:mm:ss tt",
+    "importAllCustomFields": "false",
+    "syncRevokedAndExpiredCerts": "true",
+    "issuerDNLookupTerm": "Sectigo",
+    "enableDisabledFieldSync": "false",
+    "sslTypeIds": [ 111111, 222222 ],
+    "sectigoPageSize": 25,
+    "keyfactorPageSize": 100
+  }
+}

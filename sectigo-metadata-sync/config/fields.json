@@ -1,0 +1,78 @@
+{
+  "_comments": {
+    "ManualFields": "List of fields used for loading static information from Sectigo as certificate Metadata in Keyfactor.",
+    "CustomFields": "List of Custom Fields/Metadata Fields to be synced between Keyfactor and Sectigo.",
+    "sectigoFieldName": "The name of the field in Sectigo. If manual field, an address into the Sectigo Certificate Details json response.",
+    "keyfactorMetadataFieldName": "The name of the field in Keyfactor. This must not contain spaces, or a variety of other characters. Only [a-zA-Z0-9-_] fitting characters are accepted.",
+    "keyfactorDescription": "A description of the metadata field for use with Keyfactor.",
+    "keyfactorDataType": "The data type of the field. (1 = String, 2 = Integer, etc.)",
+    "keyfactorHint": "A short hint to guide users on what to enter in the field, displayed in Keyfactor.",
+    "keyfactorValidation": "A RegEx expression to validate the field's input. Only applicable for string fields.",
+    "keyfactorEnrollment": "How the metadata field is handled in Keyfactor during certificate enrollment. String = 1, Integer = 2, Date = 3, Boolean = 4, MultipleChoice = 5, BigText = 6, Email = 7. ",
+    "keyfactorMessage": "A message to be displayed when validation fails.",
+    "keyfactorOptions": "An array of values for multiple-choice fields. Ignored for other data types.",
+    "keyfactorDefaultValue": "A default value for the field. Only applicable for certain data types.",
+    "keyfactorDisplayOrder": "The order in which the field is displayed.",
+    "keyfactorCaseSensitive": "Whether validation is case-sensitive. Only applicable for string fields with validation."
+  },
+  "ManualFields": [
+    {
+      "sectigoFieldName": "id",
+      "keyfactorMetadataFieldName": "SectigoID",
+      "keyfactorDescription": "Sectigo Assigned Cert ID",
+      "keyfactorDataType": 2,
+      "keyfactorHint": "",
+      "keyfactorValidation": null,
+      "keyfactorEnrollment": 0,
+      "keyfactorMessage": null,
+      "keyfactorOptions": null,
+      "keyfactorDefaultValue": null,
+      "keyfactorDisplayOrder": 1,
+      "keyfactorCaseSensitive": false
+    },
+    {
+      "sectigoFieldName": "certType.id",
+      "keyfactorMetadataFieldName": "SectigoCertTypeID",
+      "keyfactorDescription": "Sectigo Cert Type ID For This Cert",
+      "keyfactorDataType": 2,
+      "keyfactorHint": "",
+      "keyfactorValidation": null,
+      "keyfactorEnrollment": 0,
+      "keyfactorMessage": null,
+      "keyfactorOptions": null,
+      "keyfactorDefaultValue": null,
+      "keyfactorDisplayOrder": 2,
+      "keyfactorCaseSensitive": false
+    }
+  ],
+  "CustomFields": [
+    {
+      "sectigoFieldName": "Special String",
+      "keyfactorMetadataFieldName": "TestField",
+      "keyfactorDescription": "Just an empty test field.",
+      "keyfactorDataType": 1,
+      "keyfactorHint": "Enter test data",
+      "keyfactorValidation": null,
+      "keyfactorEnrollment": 0,
+      "keyfactorMessage": null,
+      "keyfactorOptions": null,
+      "keyfactorDefaultValue": null,
+      "keyfactorDisplayOrder": 3,
+      "keyfactorCaseSensitive": false
+    },
+    {
+      "sectigoFieldName": "Special Number",
+      "keyfactorMetadataFieldName": "IntegerTestField",
+      "keyfactorDescription": "Another test field but with an integer.",
+      "keyfactorDataType": 2,
+      "keyfactorHint": "Enter an integer value",
+      "keyfactorValidation": null,
+      "keyfactorEnrollment": 0,
+      "keyfactorMessage": null,
+      "keyfactorOptions": null,
+      "keyfactorDefaultValue": null,
+      "keyfactorDisplayOrder": 4,
+      "keyfactorCaseSensitive": false
+    }
+  ]
+}

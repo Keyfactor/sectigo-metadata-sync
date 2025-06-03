@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    },
+    "kftosc": {
+      "commandName": "Project",
+      "commandLineArgs": "kftosc"
+    },
+    "sctokf": {
+      "commandName": "Project",
+      "commandLineArgs": "sctokf"
+    }
+  }
+}
