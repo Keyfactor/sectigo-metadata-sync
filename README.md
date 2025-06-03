@@ -5,9 +5,9 @@
 <p align="center">
   <!-- Badges -->
 <img src="https://img.shields.io/badge/integration_status-pilot-3D1973?style=flat-square" alt="Integration Status: pilot" />
-<a href="https://github.com/Keyfactor/sectigo-metadata-sync-dev/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync-dev?style=flat-square" alt="Release" /></a>
-<img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync-dev?style=flat-square" alt="Issues" />
-<img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync-dev/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
+<a href="https://github.com/Keyfactor/sectigo-metadata-sync/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Release" /></a>
+<img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Issues" />
+<img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
 </p>
 
 <p align="center">
@@ -46,8 +46,6 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
 ## Installation and Usage
 
 1. **Prerequisites**
-
-   * Windows environment (supports scheduling via Task Scheduler).
    * .NET 9 runtime.
    * A valid Sectigo account with API access credentials.
    * A Keyfactor account with API access credentials.
@@ -55,13 +53,11 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
 
      * `config.json`
      * `fields.json`
-     * `banned-characters.json`, which will be generated during the first run if needed.
+     * `bannedcharacters.json`, which will be generated during the first run if needed.
     
    * The tool has been designed for Keyfactor 25.1, but was tested as compatible with older versions.
 
 2. **Running The Tool**
-   Using Command Prompt, navigate to the directory above, and invoke, choosing whichever sync mode you desire.:
-
    ```powershell
    SectigoMetadataSync.exe sctokf
    ```
@@ -71,7 +67,7 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
    ```powershell
    SectigoMetadataSync.exe kftosc
    ```
-> **Note:** sctokf sync must be run at least once before kftosc can be.
+  > **Note:** sctokf sync must be run at least once before kftosc can be.
 
 ---
 
@@ -93,13 +89,13 @@ One of the following two modes must be specified as the **first (and only) argum
   * Reads each `CustomField` entry in `fields.json`.
   * For each field, retrieves the value from Keyfactor and updates Sectigo.
 
-> If no argument or an invalid argument is provided, the tool will log an error and exit.
+> **Note:** If no argument or an invalid argument is provided, the tool will log an error and exit.
 
 ---
 
 ## Settings
 
-### 1. `stock-config.json` Settings
+### 1. `config\config.json` Settings
 
 * **sectigoLogin**
   Login name/email for Sectigo API (e.g., the account you use to log into Sectigo).
@@ -168,11 +164,22 @@ One of the following two modes must be specified as the **first (and only) argum
 
 ---
 
-### 2. `fields.json` Settings
+### 2. `config\fields.json` Settings
+* **ManualFields and CustomFields**
 
+    Manual Fields are used to import data from “static” Sectigo certificate attributes obtained using the Sectigo API "Get SSL certificate details" endpoint (e.g., serial number, common name) into Keyfactor. 
+    To retrieve this data, you specify the path to the attribute you wish to retrieve in the sectigoFieldName, using `.` for separation. For example, to retrieve certificateDetails.issuer
+    from certificateDetails, list certificateDetails.issuer as the sectigoFieldName, as issuer is a part of certificateDetails. 
+    Review the Sectigo API documentation for the SSL "Get SSL certificate details" endpoint to view the available attributes and subattributes.
+
+    Custm Fields are used to import data from Sectigo custom fields, which are user-defined fields. If importAllCustomFields is set to true, the tool will match the field types and other information contained in Sectigo when it creates the fields within Keyfactor.
+    Otherwise, information listed in the CustomFields array within `fields.json` will be used to create the fields within Keyfactor.
+    > **Note:**  The Keyfactor fields listed in ManualFields and KeyfactorFields are compatible with Keyfactor Command 25.1, 
+    but the tool will work with older versions of Keyfactor and the unused fields and contained data will be ignored.
+
+   
 * **ManualFields**
-  An array of objects defining “static” Sectigo certificate attributes (e.g., serial number, common name) to be imported into Keyfactor. 
-  This object lists the fields compatible with Keyfactor Command 25.1, but the tool will work with older versions of Keyfactor and the unused fields will be ignored.
+
   Each object must include:
 
   1. `sectigoFieldName`
@@ -222,11 +229,11 @@ One of the following two modes must be specified as the **first (and only) argum
       * `true` or `false`. Only relevant if `keyfactorValidation` is provided for a string field.
 
 * **CustomFields**
-  An array of objects defining Sectigo *custom* fields to be synchronized. Uses the same fields as above. If `importAllCustomFields = true` (in `stock-config.json`), you may omit individual entries here and let the tool import all custom fields automatically.
+ Uses the same fields as above. An array of objects defining Sectigo *custom* fields to be synchronized. If `importAllCustomFields = true` (in `stock-config.json`), you may omit individual entries here and let the tool import all custom fields automatically.
 
 ---
 
-### 3. Banned Characters (Optional)
+### 3. config\bannedcharacters.json
 
 On the very first run, the tool inspects all Sectigo custom field names and compares them against Keyfactor’s allowed metadata‐field naming rules (alphanumeric, `-`, and `_` only). If it finds unsupported characters, it will produce a file called `bannedCharacters.json` in the same directory, with entries like:
 
@@ -284,7 +291,7 @@ Logging is managed via NLog and is configured in the accompanying `config\NLog.c
 #### Example Log Entry (MainLogFile)
 
 ```
-2025-06-03 02:00:01.2345 | INFO  | SectigoMetadataSync.Program | Starting SCtoKF synchronization mode.
+2025-06-03 02:00:01.2345 | INFO  | SectigoMetadataSync.MetadataSync | Starting SCtoKF synchronization mode.
 ```
 
 #### Example Log Entry (ErrorLogFile)
@@ -321,11 +328,11 @@ Always restart the tool after modifying `NLog.config` to ensure changes take eff
    ```
 
    * If Sectigo custom field names contain banned characters, you will see warnings in the log and the tool will exit.
-   * A file named `bannedCharacters.json` will be created listing each banned character with `"replacementCharacter": null`.
+   * A file named `bannedcharacters.json` will be created listing each banned character with `"replacementCharacter": null`.
 
 3. **Populate Banned Characters**
 
-   * Open `bannedCharacters.json`.
+   * Open `config\bannedcharacters.json`.
    * For each entry where `"replacementCharacter": null`, supply a valid replacement (alphanumeric, `-`, or `_`).
 
      ```jsonc
