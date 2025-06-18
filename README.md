@@ -46,7 +46,7 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
 ## Installation and Usage
 
 1. **Prerequisites**
-   * .NET 9 runtime.
+   * .NET 9 or newer runtime.
    * A valid Sectigo account with API access credentials.
    * A Keyfactor account with API access credentials.
    * The following config files filled in within the config sub-directory:
