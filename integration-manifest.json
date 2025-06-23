@@ -1,6 +1,6 @@
 {
-  "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
-  "integration_type": "orchestrator",
+  "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
+  "integration_type": "api-client",
   "name": "Sectigo Metadata Sync",
   "status": "production",
   "description": "Sectigo Metadata Sync Application",
@@ -8,13 +8,5 @@
   "update_catalog": false,
   "support_level": "kf-community",
   "release_project": "sectigo-metadata-sync/SectigoMetadataSync.csproj",
-  "release_dir": "sectigo-metadata-sync/bin/Release",
-  "about": {
-    "orchestrator": {
-      "keyfactor_platform_version": "N/A",
-      "UOFramework": "N/A",
-      "pam_support": false,
-      "store_types": []
-    }
-  }
+  "release_dir": "sectigo-metadata-sync/bin/Release"
 }
