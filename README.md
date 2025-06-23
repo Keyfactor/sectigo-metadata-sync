@@ -4,7 +4,7 @@
 
 <p align="center">
   <!-- Badges -->
-<img src="https://img.shields.io/badge/integration_status-pilot-3D1973?style=flat-square" alt="Integration Status: pilot" />
+<img src="https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square" alt="Integration Status: production" />
 <a href="https://github.com/Keyfactor/sectigo-metadata-sync/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Release" /></a>
 <img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Issues" />
 <img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
@@ -46,7 +46,7 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
 ## Installation and Usage
 
 1. **Prerequisites**
-   * .NET 9 runtime.
+   * .NET 9 or newer runtime.
    * A valid Sectigo account with API access credentials.
    * A Keyfactor account with API access credentials.
    * The following config files filled in within the config sub-directory:
