@@ -1,10 +1,10 @@
 <h1 align="center" style="border-bottom: none">
-    Sectigo Metadata Sync
+    Sectigo Metadata Sync Universal Orchestrator Extension
 </h1>
 
 <p align="center">
   <!-- Badges -->
-<img src="https://img.shields.io/badge/integration_status-pilot-3D1973?style=flat-square" alt="Integration Status: pilot" />
+<img src="https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square" alt="Integration Status: production" />
 <a href="https://github.com/Keyfactor/sectigo-metadata-sync/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Release" /></a>
 <img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Issues" />
 <img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
@@ -14,22 +14,20 @@
   <!-- TOC -->
   <a href="#support">
     <b>Support</b>
-  </a> 
+  </a>
+  ·
+  <a href="#installation">
+    <b>Installation</b>
+  </a>
   ·
   <a href="#license">
     <b>License</b>
   </a>
   ·
-  <a href="https://github.com/topics/keyfactor-integration">
+  <a href="https://github.com/orgs/Keyfactor/repositories?q=orchestrator">
     <b>Related Integrations</b>
   </a>
 </p>
-
-## Support
-The Sectigo Metadata Sync is open source and there is **no SLA**. Keyfactor will address issues as resources become available. Keyfactor customers may request escalation by opening up a support ticket through their Keyfactor representative. 
-
-> To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, use the **[Pull requests](../../pulls)** tab.
-
 
 ## Overview
 
@@ -43,10 +41,78 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
 
 ---
 
+
+
+## Compatibility
+
+This integration is compatible with Keyfactor Universal Orchestrator version N/A and later.
+
+## Support
+The Sectigo Metadata Sync Universal Orchestrator extension If you have a support issue, please open a support ticket by either contacting your Keyfactor representative or via the Keyfactor Support Portal at https://support.keyfactor.com.
+
+> To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, use the **[Pull requests](../../pulls)** tab.
+
+## Requirements & Prerequisites
+
+Before installing the Sectigo Metadata Sync Universal Orchestrator extension, we recommend that you install [kfutil](https://github.com/Keyfactor/kfutil). Kfutil is a command-line tool that simplifies the process of creating store types, installing extensions, and instantiating certificate stores in Keyfactor Command.
+
+
+
+##  Certificate Store Type
+
+To use the Sectigo Metadata Sync Universal Orchestrator extension, you **must** create the  Certificate Store Type. This only needs to happen _once_ per Keyfactor Command instance.
+
+
+
+## Installation
+
+1. **Download the latest Sectigo Metadata Sync Universal Orchestrator extension from GitHub.**
+
+    Navigate to the [Sectigo Metadata Sync Universal Orchestrator extension GitHub version page](https://github.com/Keyfactor/sectigo-metadata-sync/releases/latest). Refer to the compatibility matrix below to determine whether the `net6.0` or `net8.0` asset should be downloaded. Then, click the corresponding asset to download the zip archive.
+
+   | Universal Orchestrator Version | Latest .NET version installed on the Universal Orchestrator server | `rollForward` condition in `Orchestrator.runtimeconfig.json` | `sectigo-metadata-sync` .NET version to download |
+   | --------- | ----------- | ----------- | ----------- |
+   | Older than `11.0.0` | | | `net6.0` |
+   | Between `11.0.0` and `11.5.1` (inclusive) | `net6.0` | | `net6.0` |
+   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `Disable` | `net6.0` |
+   | Between `11.0.0` and `11.5.1` (inclusive) | `net8.0` | `LatestMajor` | `net8.0` |
+   | `11.6` _and_ newer | `net8.0` | | `net8.0` |
+
+    Unzip the archive containing extension assemblies to a known location.
+
+    > **Note** If you don't see an asset with a corresponding .NET version, you should always assume that it was compiled for `net6.0`.
+
+2. **Locate the Universal Orchestrator extensions directory.**
+
+    * **Default on Windows** - `C:\Program Files\Keyfactor\Keyfactor Orchestrator\extensions`
+    * **Default on Linux** - `/opt/keyfactor/orchestrator/extensions`
+
+3. **Create a new directory for the Sectigo Metadata Sync Universal Orchestrator extension inside the extensions directory.**
+
+    Create a new directory called `sectigo-metadata-sync`.
+    > The directory name does not need to match any names used elsewhere; it just has to be unique within the extensions directory.
+
+4. **Copy the contents of the downloaded and unzipped assemblies from __step 2__ to the `sectigo-metadata-sync` directory.**
+
+5. **Restart the Universal Orchestrator service.**
+
+    Refer to [Starting/Restarting the Universal Orchestrator service](https://software.keyfactor.com/Core-OnPrem/Current/Content/InstallingAgents/NetCoreOrchestrator/StarttheService.htm).
+
+
+
+> The above installation steps can be supplemented by the [official Command documentation](https://software.keyfactor.com/Core-OnPrem/Current/Content/InstallingAgents/NetCoreOrchestrator/CustomExtensions.htm?Highlight=extensions).
+
+
+
+## Defining Certificate Stores
+
+
+
+
 ## Installation and Usage
 
 1. **Prerequisites**
-   * .NET 9 runtime.
+   * .NET 9 or newer runtime.
    * A valid Sectigo account with API access credentials.
    * A Keyfactor account with API access credentials.
    * The following config files filled in within the config sub-directory:
@@ -382,11 +448,10 @@ Always restart the tool after modifying `NLog.config` to ensure changes take eff
 ---
 
 
-
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE).
 
 ## Related Integrations
 
-See all [Keyfactor integrations](https://github.com/topics/keyfactor-integration).
+See all [Keyfactor Universal Orchestrator extensions](https://github.com/orgs/Keyfactor/repositories?q=orchestrator).
