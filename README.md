@@ -5,9 +5,9 @@
 <p align="center">
   <!-- Badges -->
 <img src="https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square" alt="Integration Status: production" />
-<a href="https://github.com/Keyfactor/sectigo-metadata-sync/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Release" /></a>
-<img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Issues" />
-<img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
+<a href="https://github.com/Keyfactor/sectigo-metadata-sync-dev/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync-dev?style=flat-square" alt="Release" /></a>
+<img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync-dev?style=flat-square" alt="Issues" />
+<img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync-dev/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
 </p>
 
 <p align="center">
@@ -33,31 +33,29 @@ The Sectigo Metadata Sync is open source and there is **no SLA**. Keyfactor will
 
 ## Overview
 
-This tool automates the synchronization of metadata fields between Sectigo and Keyfactor. It performs two primary operations:
+This tool performs the synchronization of metadata fields and their contents between Sectigo and Keyfactor. It has two modes of operation:
 
 1. **SCtoKF** – Synchronizes custom fields and contained data, and additional requested data from Sectigo into Keyfactor. 
 2. **KFtoSC** – Synchronizes custom field data from Keyfactor back to Sectigo. 
 
-Fields listed in `fields.json` that do not already exist in Keyfactor will be created automatically.
-> **Note:** Certificates must already be imported into Keyfactor for metadata synchronization to work. The tool does *not* import certificates themselves.
-
----
+Fields listed in `fields.json` that do not already exist in Keyfactor will be created automatically if they do not already exist, and updated otherwise.
+> **Note:** Certificates must already be imported into Keyfactor for metadata synchronization to work. The tool does *not* import the certificates themselves, and functions separately from the Sectigo Gateway. The tool does not need to be installed on the same server as Keyfactor Command or the Sectigo Gateway, but needs API access to both Command and the Sectigo SCM API.
 
 ## Installation and Usage
 
 1. **Prerequisites**
-   * .NET 9 or newer runtime.
+   * .NET 9 runtime, installed through the hosting package.
    * A valid Sectigo account with API access credentials.
-   * A Keyfactor account with API access credentials.
-   * The following config files filled in within the config sub-directory:
+   * A Keyfactor account with API access credentials for use with basic authentication, or OAuth token retrieval data if OAuth authentication is used (see OAuth login section in this manual for specific details).
+   * The following config files set up within the `config` sub-directory:
 
      * `config.json`
      * `fields.json`
      * `bannedcharacters.json`, which will be generated during the first run if needed.
     
-   * The tool has been designed for Keyfactor 25.1, but was tested as compatible with older versions.
+   * The tool has been designed for Keyfactor 25.3, but has been tested as compatible with older versions.
 
-2. **Running The Tool**
+2. **Running the Tool**
    ```powershell
    SectigoMetadataSync.exe sctokf
    ```
@@ -67,35 +65,20 @@ Fields listed in `fields.json` that do not already exist in Keyfactor will be cr
    ```powershell
    SectigoMetadataSync.exe kftosc
    ```
-  > **Note:** sctokf sync must be run at least once before kftosc can be.
-
----
-
-## Command Line Arguments
-
-One of the following two modes must be specified as the **first (and only) argument** when launching the executable:
-
-* `sctokf`
-  Synchronizes custom and manual fields **from Sectigo into Keyfactor**.
-
-  * Reads each entry in `fields.json`.
-  * For each “ManualField,” extracts the specified data from Sectigo’s certificate details JSON.
-  * For each “CustomField,” reads Sectigo’s custom-field value and writes it into Keyfactor.
-  * The required metadata fields are created in Keyfactor if they do not already exist.
-
-* `kftosc`
-  Synchronizes custom fields (NOT manual fields) **from Keyfactor back into Sectigo**.
-
-  * Reads each `CustomField` entry in `fields.json`.
-  * For each field, retrieves the value from Keyfactor and updates Sectigo.
-
-> **Note:** If no argument or an invalid argument is provided, the tool will log an error and exit.
-
----
+  > **Note:** SCtoKF sync must be run at least once before KFtoSC can be. Please carefully review all the available configuration options below before running the tool, as some settings may irreversibly impact existing data.
 
 ## Settings
 
-### 1. `config\config.json` Settings
+### The Philosophy of Manual Fields and Custom Fields
+
+Manual Fields is a term used to represent fields containing data from “static” Sectigo certificate attributes (e.g., externalRequester, reasonCode) obtained when using the Sectigo API "Get SSL certificate details" endpoint for a given certificadte into Keyfactor. 
+This is useful in cases where certain data is not automatically loaded into Keyfactor when the certificate is imported via the Sectigo Gateway, but you wish to have it stored in Keyfactor regardless using a Keyfactor Metadata Field.
+
+Custom Fields is a term used to represent Sectigo custom fields, which are user-defined fields, and exist in Sectigo the same way Metadata Fields exist in Keyfactor. 
+
+These terms are only used in the context of this tool, and do not represent any official terminology from either Sectigo or Keyfactor, but are useful to differentiate between the two different scenarios that occur during synchronization.
+
+### 1.`config\config.json` Settings
 
 * **sectigoLogin**
   Login name/email for Sectigo API (e.g., the account you use to log into Sectigo).
@@ -104,19 +87,19 @@ One of the following two modes must be specified as the **first (and only) argum
   Password for the Sectigo account.
 
 * **sectigoCustomerUri**
- This is a static value that determined the customer's account on the Certificate Platform. This can be found as part of the portal login URL `https://hard.cert-manager.com/customer/{CustomerUri}`
+ This is a static value that determines the customer's account on the Certificate Platform. This can be found as part of the portal login URL `https://hard.cert-manager.com/customer/{CustomerUri}`
 
 * **sectigoAPIUrl**
   Base URL for Sectigo’s API (e.g., `https://cert-manager.com`).
 
 * **keyfactorLogin**
-  Keyfactor domain and username, in the form `DOMAIN\\Username`.
+  Keyfactor domain and username, in the form `DOMAIN\\Username`. If using OAuth authentication, this can be set to `null`. The Keyfactor account must have API access and permissions to create/update metadata fields, and alter certificate data.
 
 * **keyfactorPassword**
-  Password for the Keyfactor account.
+  Password for the Keyfactor account. If using OAuth authentication, this can be set to `null`.
 
 * **keyfactorAPIUrl**
-  Full Keyfactor API endpoint (e.g., `https://your-keyfactor-server.com/keyfactorapi`).
+  Full Keyfactor API endpoint (e.g., `https://your-keyfactor-server.com/keyfactorapi`). This applies to both basic and OAuth authentication. 
 
 * **keyfactorDateFormat**
   Date/time format to use when reading Date information from Keyfactor for SCtoKF mode. Varies based on your Keyfactor Command version.
@@ -140,7 +123,7 @@ One of the following two modes must be specified as the **first (and only) argum
 * **issuerDNLookupTerm**
   A substring to match against the Issuer Distinguished Name, which is how the tool identifies Sectigo-issued certificates in Keyfactor.
 
-  * Only certificates whose Issuer DN contains this term (e.g., `"Sectigo"`) will be considered.
+  * Only certificates whose Issuer DN contains this term (e.g., `"Sectigo"`) will be considered. Certificates that are not present in your Sectigo account will be ignored, and their metadata will not be altered.
 
 * **enableDisabledFieldSync**
   String `"true"` or `"false"`.
@@ -156,35 +139,62 @@ One of the following two modes must be specified as the **first (and only) argum
 
 * **sectigoPageSize**
   Maximum number of certificates to fetch per page from Sectigo (pagination).
-  Default in code is `25`.
+  Default is `25`.
 
 * **keyfactorPageSize**
   Maximum number of certificates to fetch per page from Keyfactor (pagination).
-  Default in code is `100`.
+  Default is `100`.
 
----
+* **keyfactorAddedSince**
+  Allows you to specify a date that will be used to limit the sync to certificates imported into Keyfactor after that date.
+  For example, if you specify `"2023-09-01"`, only certificates added to Keyfactor after September 1, 2023 will be considered for metadata sync.
+  If you wish to sync all certificates, use the value of `null`.
+
+* **enableTruncation**
+  This setting controls data truncation to comply with Sectigo and Keyfactor field length character limits.
+  Keyfactor specifies the Keyfactor limits in their documentation [here](https://software.keyfactor.com/Core-OnPrem/v25.3/Content/ReferenceGuide/CreatingaMetadataField.htm#_Ref498525440) and Sectigo specifies the limits in their API documentation [here](https://www.sectigo.com/knowledge-base/detail/Sectigo-Certificate-Manager-SCM-REST-API/kA01N000000XDkE).
+  The Keyfactor length limits are varied depending on the field data type, and Sectigo custom fields have a maximum length of 255 characters.  
+
+  You may run into these limits when attempting to sync `Custom Field` data from Keyfactor to Sectigo, but also when trying to sync a `Manual Field` from Sectigo to Keyfactor, as the data retrieved from the Sectigo "Get SSL certificate details" endpoint may technically exceed the limits for either system.
+
+  If this setting is set to `true`, the tool will automatically truncate data to fit within the limits when writing to either system. 
+  
+  ⚠️ WARNING: *If you sync the data to Keyfactor (in SCtoKF mode) and it ends up getting truncated, and then sync the data back to Sectigo (in KFtoSC), the portion that was truncated will be permanently lost. The same applies in reverse. To avoid this scenario, be mindful of running sync both ways when you have data exceeding character length limits for either Keyfactor or Sectigo. Review the logs following sync to identify any truncation related issues early.*
+
+  If this setting is set to `false`, the tool will ignore any data that exceeds the limits and will log a warning. The original value will be used and will likely result in an error, as well as the value not getting synced.
+
+If you are using OAuth authentication for Keyfactor, the following section must be present (and must be absent if you are using basic authentication, see `stock-config-oauth.json` for OAuth and `stock-config.json` for basic auth):
+
+* **keyfactorOAuth**
+    * **tokenUrl**
+    The URL to retrieve the token from. This tool has been tested for use with Keyfactor using both Keycloak and Auth0 to obtain tokens.
+    
+    * **clientId**
+    Token client id.
+
+    * **clientSecret**
+    Token client secret.
+
+    * **scopesCsv**
+    Comma separated list of scopes to request the token for, can be left blank.
+
+    * **audience** 
+    Token audience.
+
+    * **requestedWith**
+    String to specify the requested with header value for all OAuth related requests.
+
+    * **refreshSkewSeconds**
+    Default is 60 seconds. This is the amount of time before the token expiration that the tool will attempt to refresh the token. If a refresh time is returned with the token, and that value exceeds the value given here, the returned value will be used instead.
 
 ### 2. `config\fields.json` Settings
-* **ManualFields and CustomFields**
-
-    Manual Fields are used to import data from “static” Sectigo certificate attributes obtained using the Sectigo API "Get SSL certificate details" endpoint (e.g., serial number, common name) into Keyfactor. 
-    To retrieve this data, you specify the path to the attribute you wish to retrieve in the sectigoFieldName, using `.` for separation. For example, to retrieve certificateDetails.issuer
-    from certificateDetails, list certificateDetails.issuer as the sectigoFieldName, as issuer is a part of certificateDetails. 
-    Review the Sectigo API documentation for the SSL "Get SSL certificate details" endpoint to view the available attributes and subattributes.
-
-    Custm Fields are used to import data from Sectigo custom fields, which are user-defined fields. If importAllCustomFields is set to true, the tool will match the field types and other information contained in Sectigo when it creates the fields within Keyfactor.
-    Otherwise, information listed in the CustomFields array within `fields.json` will be used to create the fields within Keyfactor.
-    > **Note:**  The Keyfactor fields listed in ManualFields and KeyfactorFields are compatible with Keyfactor Command 25.1, 
-    but the tool will work with older versions of Keyfactor and the unused fields and contained data will be ignored.
-
-   
 * **ManualFields**
-
+  This is a json list of objects defining Sectigo *static* fields to be synchronized.
   Each object must include:
 
   1. `sectigoFieldName`
 
-     * The exact JSON path of the field in Sectigo’s “certificate details” response.
+     * The exact JSON path of the field in Sectigo’s “Get SSL certificate details” response.
      * Use dot notation if nested (e.g., `'certificate.subject.organization'`).
   2. `keyfactorMetadataFieldName`
 
@@ -231,7 +241,23 @@ One of the following two modes must be specified as the **first (and only) argum
 * **CustomFields**
  Uses the same fields as above. An array of objects defining Sectigo *custom* fields to be synchronized. If `importAllCustomFields = true` (in `stock-config.json`), you may omit individual entries here and let the tool import all custom fields automatically.
 
----
+### Use Guidelines for `config.json`
+
+To retrieve data via a Manual Field, you specify the path to the attribute from the Sectigo "Get SSL certificate details" in the sectigoFieldName in the `ManualFields` section in `fields.json`, using `.` to address into additional layers of objects. For example, to have `certificateDetails.issuer`
+imported into Keyfactor as a metadata field, list `certificateDetails.issuer` as the `sectigoFieldName` for a given field. 
+For an object retrieved from the Sectigo API, you will only be able to store one leaf (lowest level) attribute per Keyfactor metadata field. If an object is a list, the Metadata Sync Tool will attempt to store the entire list as a comma-separated string.
+Review the [Sectigo API](https://www.sectigo.com/knowledge-base/detail/Sectigo-Certificate-Manager-SCM-REST-API/kA01N000000XDkE) documentation for the SSL "Get SSL certificate details" endpoint to view all of the available attributes and objects.    
+
+If `importAllCustomFields` is set to true, the tool will attempt to match the field types between Keyfactor and Sectigo when it creates the fields within Keyfactor.
+Otherwise, information listed for each field specified in the CustomFields array within `fields.json` will be used to create the fields within Keyfactor.
+It is recommended to only use `importAllCustomFields` in cases where you have a very large number of custom fields in Sectigo and do not wish to manually list them all in `fields.json`. 
+Using `fields.json` is the preferred method, as it provides granular control over metadata field settings.
+
+Additional information on what attributes like `keyfactorDataType` and `keyfactorValidation` represent, as well as details of other configuration options can be found in the [Keyfactor Metadata Field API Endpoint documentation](https://software.keyfactor.com/Core-OnPrem/v25.2/Content/WebAPI/KeyfactorAPI/MetadataFieldsPost.htm).
+> **Note:**  The Keyfactor fields supported by this tool are compatible with Keyfactor Command 25.1, 
+but the tool will work with older versions of Keyfactor and the unused fields and contained data will be ignored.
+
+> **Note:**  Set the value of all parameters you are not using to `null`.
 
 ### 3. config\bannedcharacters.json
 
@@ -261,7 +287,28 @@ On the very first run, the tool inspects all Sectigo custom field names and comp
 
 If any `"replacementCharacter"` remains `null`, the tool will exit with an error on the next run. Once you populate all replacements, fields will be created in Keyfactor with names free of banned characters.
 
----
+If you are using `importAllCustomFields = false`, the tool will still check for banned characters in the `CustomFields` listed in `fields.json`, and will generate an error if any are found, and will also create `bannedCharacters.json`.
+However, in this case, you should manually alter the field names in `fields.json`, then remove the `bannedCharacters.json` file, and rerun the tool.
+
+## Command Line Arguments
+
+One of the following two modes must be specified as the **first (and only) argument** when launching the executable:
+
+* `sctokf`
+  Synchronizes custom and manual fields **from Sectigo into Keyfactor**.
+
+  * Reads each entry in `fields.json`.
+  * For each “ManualField,” extracts the specified data from Sectigo’s certificate details JSON.
+  * For each “CustomField,” reads Sectigo’s custom-field value and writes it into Keyfactor.
+  * The required metadata fields are created in Keyfactor if they do not already exist.
+
+* `kftosc`
+  Synchronizes custom fields (NOT manual fields) **from Keyfactor back into Sectigo**.
+
+  * Reads each `CustomField` entry in `fields.json`.
+  * For each field, retrieves the value from Keyfactor and updates Sectigo.
+
+> **Note:** If no argument or an invalid argument is provided, the tool will log an error and exit.
 
 ## Logging
 
@@ -286,8 +333,6 @@ Logging is managed via NLog and is configured in the accompanying `config\NLog.c
 * **ErrorLogFile (`MetadataSync-Errors.log`)**
   Captures only `Error` and `Fatal` entries. Use this file to quickly locate failed operations without sifting through lower‐level debug or info messages.
 
----
-
 #### Example Log Entry (MainLogFile)
 
 ```
@@ -311,66 +356,82 @@ Logging is managed via NLog and is configured in the accompanying `config\NLog.c
 
 Always restart the tool after modifying `NLog.config` to ensure changes take effect.
 
----
-
 ## Example Workflow
 
 1. **Initial Setup**
-
-   * Populate `config\config.json` with your Sectigo and Keyfactor API credentials.
+Extract the zip and have the tool files in a folder (e.g., `C:\Tools\SectigoSync\`). If you want to run the tool on a schedule, consider creating a scheduled task in Windows Task Scheduler.
+Make sure that the account used to run the tool has read/write permissions to the folder and subfolders.
+   * Populate `config\config.json` with your Sectigo and Keyfactor API credentials, as well as other settings. The tool ships with the `stock` config files, so you should copy one of those as `config.json` and edit it.
    * Populate `config\fields.json` with the manual and/or custom fields you wish to sync.
 
-2. **First Run (Detect Banned Characters)**
+2. **First Run (Detection of Banned Characters)**
 
    ```powershell
    cd C:\Tools\SectigoSync\
    .\SectigoMetadataSync.exe SCtoKF
    ```
 
-   * If Sectigo custom field names contain banned characters, you will see warnings in the log and the tool will exit.
-   * A file named `bannedcharacters.json` will be created listing each banned character with `"replacementCharacter": null`.
+   * If a Keyfactor field name contains banned characters, you will see warnings in the log and the tool will exit.
+   * A file named `bannedcharacters.json` will be created listing each banned character with `"replacementCharacter": null`. 
+     If `importAllCustomFields` is set to `  true`, populate the `bannedcharacters.json` file as detailed below. If `importAllCustomFields` is set to `false`, manually edit the field names in `fields.json`, delete `bannedcharacters.json`, and rerun the tool.
 
-3. **Populate Banned Characters**
+       **Populate Banned Characters**
 
-   * Open `config\bannedcharacters.json`.
-   * For each entry where `"replacementCharacter": null`, supply a valid replacement (alphanumeric, `-`, or `_`).
+       * Open `config\bannedcharacters.json`.
+       * For each entry where `"replacementCharacter": null`, supply a valid replacement (alphanumeric, `-`, or `_`).
 
-     ```jsonc
-     [
-       {
-         "id": 1,
-         "character": " ",
-         "replacementCharacter": "_"
-       },
-       {
-         "id": 2,
-         "character": "/",
-         "replacementCharacter": "-"
-       }
-     ]
-     ```
-   * Save the file.
+         ```jsonc
+         [
+           {
+             "id": 1,
+             "character": " ",
+             "replacementCharacter": "_"
+           },
+           {
+             "id": 2,
+             "character": "/",
+             "replacementCharacter": "-"
+           }
+         ]
+         ```
+       * Save the file.
 
-4. **Second Run (Create Fields & Sync Data)**
+3. **Second Run (Create Fields & Sync Data)**
 
    ```powershell
    .\SectigoMetadataSync.exe SCtoKF
    ```
 
-   * The tool will now convert Sectigo custom‐field names (using your replacements), create new Keyfactor metadata fields if needed, and write all custom/manual data into Keyfactor.
+   * The tool will now convert Sectigo custom‐field names (using your replacements) if `importAllCustomFields` is enabled, create new Keyfactor metadata fields if needed (and update them otherwise), and write all custom/manual field data into Keyfactor.
 
----
+## Data Flow
+![title](docsource/dataflow.png)
 
-### Troubleshooting
+The Metadata Sync Tool operates independently of the Sectigo Gateway and does not require installation on the same server as Keyfactor Command or the Sectigo Gateway. It requires API access to both systems.
+
+## Tool Process Diagram
+![title](docsource/logicdiagram.png)
+
+## Value Coercion
+When syncing data between Keyfactor and Sectigo, the tool attempts to coerce values to match the expected data types in the target system. 
+
+For example, if a Keyfactor metadata field is of type `Date`, the tool will try to parse the string value from Keyfactor into a date format that Sectigo accepts (typically `yyyy-MM-dd`).
+
+If you set up a field in Keyfactor as email, and the data exists as a string in Sectigo, Keyfactor will attempt to parse the values from Sectigo, validate them as email addresses, and submit them to Keyfactor as a properly formatted email list.
+
+The truncation process occurs at this stage of the process as well, if enabled in `config.json`.
+
+## Troubleshooting
 
 * **Missing or Invalid JSON**
 
-  * If `stock-config.json` or `fields.json` is malformed or missing required sections, the tool logs an error and exits.
+  * If `config.json` or `fields.json` is malformed or missing required sections, the tool logs an error and exits.
   * Ensure both files exist, are valid JSON, and contain the required properties (see “Settings” above).
 
 * **Authentication Failures**
 
   * Double‐check `sectigoLogin`/`sectigoPassword` and `keyfactorLogin`/`keyfactorPassword`.
+  * If you are using OAuth, consider using Postman to test your OAuth credentials and ensure token retrieval works as expected.
   * Ensure your API user has adequate permissions to create/update metadata fields.
 
 * **Field Creation Errors**
@@ -378,8 +439,23 @@ Always restart the tool after modifying `NLog.config` to ensure changes take eff
   * If Keyfactor rejects a field name (e.g., still contains a banned character), verify that `bannedCharacters.json` is up to date.
   * If Sectigo rejects a custom‐field update, ensure you are using the correct custom‐field “name” as visible in Sectigo’s administration UI.
   * Consider deleting 'bannedCharacters.json' and re-running the tool to regenerate it from scratch.
+  
+* **Keyfactor metadata field type update failure**
 
----
+  * Keyfactor will not allow updating the data type of an existing metadata field. If you need to change the data type, you must delete the existing field in Keyfactor and let the tool recreate it.
+
+* **Field content truncation**
+
+  * Both Keyfactor and Sectigo impose maximum lengths on metadata field names and values. If you see warnings about truncation in the logs, consider truncating the data manually prior to running sync. These limits can be found in the respective product documentation for [Keyfactor](https://software.keyfactor.com/Core-OnPrem/v25.3/Content/ReferenceGuide/CreatingaMetadataField.htm#_Ref498525440) and [Sectigo](https://www.sectigo.com/knowledge-base/detail/Sectigo-Certificate-Manager-SCM-REST-API/kA01N000000XDkE).
+
+* **Account permission issues**
+  * Ensure the API user accounts have permissions to edit certificate details and edit metadata fields.
+  * If you are running into these issues, you can try running the tool using an admin account and see if you can match the required permissions.
+
+* **API Access issues**
+  * Ensure that the API endpoints specified in `config.json` are correct and reachable from the machine running the tool. Sometimes a missing slash or typo can cause connection issues.
+  * Check for network issues, firewalls, or proxies that might be blocking access.
+  * Consider using Postman or a similar tool to manually test the API endpoint connectivity.
 
 
 

@@ -1,295 +1,374 @@
-﻿// Copyright 2021 Keyfactor
-// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
-// and limitations under the License.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using SectigoMetadataSync.Models;
 
 namespace SectigoMetadataSync.Client;
 
 /// <summary>
-///     Synchronous client for retrieving Sectigo custom fields (metadata) and SSL certificates.
-///     Designed for use as a typed HttpClient via IHttpClientFactory.
+///     Fully synchronous Sectigo API client using HttpClient.Send with automatic retry + backoff.
+///     Safe for use via IHttpClientFactory (typed client) or manual construction.
 /// </summary>
-public class SectigoCustomFieldsClient
+public sealed class SectigoClient
 {
-    private static readonly Logger _logger = LogManager.GetCurrentClassLogger(); // NLog Logger
+    private static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-    private readonly HttpClient _httpClient;
-
-    private readonly JsonSerializerOptions _jsonOptions = new()
+    // ---- JSON options
+    private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    /// <summary>
-    ///     Initializes a new instance of the SectigoCustomFieldsClient.
-    ///     HttpClient is injected/configured via IHttpClientFactory; its BaseAddress should be set externally.
-    /// </summary>
-    public SectigoCustomFieldsClient(HttpClient httpClient)
+    private readonly TimeSpan _baseDelay;
+    private readonly HttpClient _http;
+    private readonly TimeSpan _maxDelay;
+
+    // ---- Retry/backoff policy (tune as desired)
+    private readonly int _maxRetries;
+    private readonly Random _rng = new();
+
+    /// <param name="http">
+    ///     HttpClient with BaseAddress set to your Sectigo endpoint (e.g., https://cert-manager.com/api/).
+    /// </param>
+    /// <param name="maxRetries">Total attempts = maxRetries + 1 initial.</param>
+    /// <param name="baseDelay">Initial backoff delay when Retry-After is absent.</param>
+    /// <param name="maxDelay">Ceiling for backoff delay.</param>
+    public SectigoClient(HttpClient http, int maxRetries = 6, TimeSpan? baseDelay = null, TimeSpan? maxDelay = null)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _http = http ?? throw new ArgumentNullException(nameof(http));
+        _maxRetries = Math.Max(0, maxRetries);
+        _baseDelay = baseDelay ?? TimeSpan.FromMilliseconds(500);
+        _maxDelay = maxDelay ?? TimeSpan.FromSeconds(20);
+
+        // Recommended: JSON headers default
+        if (!_http.DefaultRequestHeaders.Accept.Contains(new MediaTypeWithQualityHeaderValue("application/json")))
+            _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
     /// <summary>
-    ///     Configures API credentials for subsequent requests.
-    ///     Must be called before invoking any list/get methods.
-    ///     Uses header-based authentication: login, password, customerUri.
+    ///     Configure per-request authentication headers (Sectigo SCM style).
     /// </summary>
     public void Authenticate(string login, string password, string customerUri)
     {
-        var headers = _httpClient.DefaultRequestHeaders;
-        headers.Remove("login");
-        headers.Remove("password");
-        headers.Remove("customerUri");
+        var h = _http.DefaultRequestHeaders;
+        h.Remove("login");
+        h.Add("login", login ?? string.Empty);
+        h.Remove("password");
+        h.Add("password", password ?? string.Empty);
+        h.Remove("customerUri");
+        h.Add("customerUri", customerUri ?? string.Empty);
 
-        headers.Add("login", login);
-        headers.Add("password", password);
-        headers.Add("customerUri", customerUri);
-
-        _logger.Info("Sectigo API authentication headers configured.");
+        Log.Info("Sectigo auth headers configured (login/customerUri set).");
     }
 
-    /// <summary>
-    ///     Lists all custom fields (full details). Maps to GET /api/customField/v2
-    /// </summary>
+    // ---------- Public API surface (mirror of common operations) ----------
+
     public List<SectigoCustomField> ListCustomFields()
     {
-        _logger.Debug("Fetching all custom fields from Sectigo API.");
-        var response = _httpClient.GetAsync("api/customField/v2").GetAwaiter().GetResult();
-        response.EnsureSuccessStatusCode();
-        var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        return JsonSerializer.Deserialize<List<SectigoCustomField>>(json, _jsonOptions) ??
-               new List<SectigoCustomField>();
+        return SendJson<List<SectigoCustomField>>(HttpMethod.Get, "api/customField/v2")
+               ?? new List<SectigoCustomField>();
     }
 
-    /// <summary>
-    ///     Lists custom fields filtered by certificate type. Maps to GET /api/customField/v2?certType={type}
-    /// </summary>
-    public List<SectigoCustomField> ListCustomFieldsByCertificateType(string certType)
-    {
-        _logger.Debug($"Fetching custom fields for certificate type: {certType}.");
-        var uri = $"api/customField/v2?certType={Uri.EscapeDataString(certType)}";
-        var response = _httpClient.GetAsync(uri).GetAwaiter().GetResult();
-        response.EnsureSuccessStatusCode();
-        var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        return JsonSerializer.Deserialize<List<SectigoCustomField>>(json, _jsonOptions) ??
-               new List<SectigoCustomField>();
-    }
-
-    /// <summary>
-    ///     Retrieves detailed information for a specific custom field by ID. Maps to GET /api/customField/v2/{id}
-    /// </summary>
-    public SectigoCustomField GetCustomFieldDetails(int id)
-    {
-        _logger.Debug($"Fetching details for custom field ID: {id}.");
-        var uri = $"api/customField/v2/{id}";
-        var response = _httpClient.GetAsync(uri).GetAwaiter().GetResult();
-        response.EnsureSuccessStatusCode();
-        var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        return JsonSerializer.Deserialize<SectigoCustomField>(json, _jsonOptions)
-               ?? throw new InvalidOperationException(
-                   $"Custom field with id {id} not found or failed to deserialize.");
-    }
-
-    /// <summary>
-    ///     Retrieves a list of SSL certificates by sending individual requests for each profile ID.
-    ///     If syncRevokedAndExpired is enabled, additional lookups are performed for Revoked and Expired statuses.
-    /// </summary>
-    /// <param name="profileIds">List of profile IDs to filter by.</param>
-    /// <param name="syncRevokedAndExpired">Whether to include revoked and expired certificates.</param>
-    /// <param name="sectigoPageSize">The size of each page for pagination.</param>
-    /// <returns>A combined list of SSL certificates matching the profile IDs.</returns>
-    public List<SectigoCertificate> GetCertificatesByProfileId(List<int> profileIds, bool syncRevokedAndExpired = false,
-        int sectigoPageSize = 25)
+    public List<SectigoCertificate> GetCertificatesByProfileId(List<int> profileIds,
+        bool includeRevokedAndExpired = false, int pageSize = 25)
     {
         if (profileIds == null || profileIds.Count == 0)
-        {
-            _logger.Debug("GetCertificatesByProfileId called with an empty or null profileIds list.");
-            throw new ArgumentException("Profile IDs cannot be null or empty.", nameof(profileIds));
-        }
-
-        var combinedCertificates = new List<SectigoCertificate>();
-
-        foreach (var profileId in profileIds)
-        {
-            _logger.Trace($"Processing profile ID: {profileId}");
-
-            try
-            {
-                if (syncRevokedAndExpired)
-                {
-                    _logger.Trace(
-                        $"SyncRevokedAndExpired is enabled. Fetching revoked and expired certificates for profile ID: {profileId}.");
-
-                    // Fetch revoked certificates
-                    _logger.Trace($"Fetching ALL certificates for profile ID: {profileId}.");
-                    combinedCertificates.AddRange(
-                        GetCertificatesByProfileIdAndStatus(profileId, null, sectigoPageSize));
-                }
-                else
-                {
-                    _logger.Trace($"Fetching active/Issued certificates for profile ID: {profileId}.");
-                    combinedCertificates.AddRange(
-                        GetCertificatesByProfileIdAndStatus(profileId, "Issued", sectigoPageSize));
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"Error processing profile ID: {profileId}");
-            }
-        }
-
-        return combinedCertificates;
+            throw new ArgumentException("profileIds required", nameof(profileIds));
+        var acc = new List<SectigoCertificate>();
+        foreach (var pid in profileIds)
+            // If includeRevokedAndExpired=false, Sectigo typically returns current/issued with no explicit status filter.
+            acc.AddRange(
+                GetCertificatesByProfileIdAndStatus(pid, includeRevokedAndExpired ? null : "Issued", pageSize));
+        return acc;
     }
 
-    /// <summary>
-    ///     Helper method to retrieve certificates for a specific profile ID and status with pagination.
-    /// </summary>
-    /// <param name="profileId">The profile ID to filter by.</param>
-    /// <param name="status">The status to filter by (e.g., "Revoked", "Expired"). Pass null for active certificates.</param>
-    /// <param name="sectigoPageSize">The size of each page for pagination.</param>
-    /// <returns>A list of SSL certificates matching the profile ID and status.</returns>
-    private List<SectigoCertificate> GetCertificatesByProfileIdAndStatus(int profileId, string? status,
-        int sectigoPageSize = 25)
-    {
-        var pageSize = sectigoPageSize; // Define the size of each page
-        var position = 0; // Start at the first entry
-        var combinedCertificates = new List<SectigoCertificate>();
-
-        while (true)
-        {
-            // Build the query string for the current profile ID, status, and pagination
-            var queryString = $"sslTypeId={profileId}&position={position}&size={pageSize}";
-            if (!string.IsNullOrEmpty(status)) queryString += $"&status={Uri.EscapeDataString(status)}";
-
-            // Construct the endpoint URL
-            var endpoint = $"api/ssl/v1?{queryString}";
-
-            try
-            {
-                // Log the pagination details at debug level
-                _logger.Trace(
-                    $"Fetching certificates for profile ID {profileId} with status '{status ?? "Active"}'. Position: {position}, Page Size: {pageSize}");
-
-                // Send the GET request
-                var response = _httpClient.GetAsync(endpoint).GetAwaiter().GetResult();
-                response.EnsureSuccessStatusCode();
-
-                // Deserialize the response JSON
-                var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                var certificates = JsonSerializer.Deserialize<List<SectigoCertificate>>(json, _jsonOptions)
-                                   ?? new List<SectigoCertificate>();
-
-                // Log the number of certificates retrieved in the current page
-                _logger.Trace(
-                    $"Retrieved {certificates.Count} certificates for profile ID {profileId} with status '{status ?? "Active"}'.");
-
-                // Add the retrieved certificates to the combined list
-                combinedCertificates.AddRange(certificates);
-
-                // If the number of certificates returned is less than the page size, we have reached the end
-                if (certificates.Count < pageSize)
-                {
-                    _logger.Trace(
-                        $"No more certificates to fetch for profile ID {profileId} with status '{status ?? "Active"}'.");
-                    break;
-                }
-
-                // Increment the position for the next page
-                position += pageSize;
-            }
-            catch (Exception ex)
-            {
-                // Log the error and return the certificates retrieved so far
-                _logger.Error(ex,
-                    $"Error retrieving certificates for profile ID {profileId} with status '{status ?? "Active"}'.");
-                break;
-            }
-        }
-
-        return combinedCertificates;
-    }
-
-    /// <summary>
-    ///     Retrieves detailed information for a specific SSL certificate by its ID.
-    /// </summary>
-    /// <param name="sectigoCertId">The ID of the SSL certificate.</param>
-    /// <returns>The detailed information of the SSL certificate.</returns>
     public SectigoCertificateDetails GetCertificateDetails(int sectigoCertId)
     {
-        if (sectigoCertId <= 0)
-            throw new ArgumentException("Certificate ID must be greater than zero.", nameof(sectigoCertId));
-
-        // Construct the endpoint URL
-        var endpoint = $"api/ssl/v1/{sectigoCertId}";
-
-        // Send the GET request
-        var response = _httpClient.GetAsync(endpoint).GetAwaiter().GetResult();
-        response.EnsureSuccessStatusCode();
-        _logger.Trace("GET request successful. Status code: " + response.StatusCode);
-
-        // Deserialize the response JSON
-        var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        return JsonSerializer.Deserialize<SectigoCertificateDetails>(json, _jsonOptions)
-               ?? throw new InvalidOperationException(
-                   $"Certificate with ID {sectigoCertId} not found or failed to deserialize.");
+        return SendJson<SectigoCertificateDetails>(HttpMethod.Get, $"api/ssl/v1/{sectigoCertId}")
+               ?? throw new InvalidOperationException($"Certificate {sectigoCertId} not found.");
     }
 
-    /// <summary>
-    ///     Updates metadata for a given SSL certificate by its ID.
-    ///     Maps to PUT /api/ssl/v1
-    /// </summary>
-    /// <param name="sslId">The ID of the SSL certificate to update.</param>
-    /// <param name="customFields">Custom fields to update (optional).</param>
-    /// <param name="comments">Comments to update (optional).</param>
-    /// <returns>The updated SSL certificate details.</returns>
     public SectigoCertificateDetails UpdateCertificateMetadata(
         int sslId,
         List<CustomFieldDetails>? customFields = null,
         string? comments = null)
     {
-        if (sslId <= 0)
-            throw new ArgumentException("Certificate ID must be greater than zero.", nameof(sslId));
+        var payload = new { sslId, customFields, comments };
+        return SendJson<SectigoCertificateDetails>(HttpMethod.Put, "api/ssl/v1", payload)
+               ?? throw new InvalidOperationException("Null response when updating certificate metadata.");
+    }
 
-        // Construct the request payload
-        var payload = new
+    // ---------- Internals ----------
+
+    private List<SectigoCertificate> GetCertificatesByProfileIdAndStatus(int profileId, string? status, int pageSize)
+    {
+        var position = 0;
+        var acc = new List<SectigoCertificate>();
+        while (true)
         {
-            sslId,
-            customFields,
-            comments
-        };
+            var qs = $"sslTypeId={profileId}&position={position}&size={pageSize}";
+            if (!string.IsNullOrWhiteSpace(status)) qs += $"&status={Uri.EscapeDataString(status)}";
 
-        // Serialize the payload to JSON
-        var jsonPayload = JsonSerializer.Serialize(payload, _jsonOptions);
-        _logger.Trace($"Constructed JSON payload for updating certificate metadata: {jsonPayload}");
+            var page = SendJson<List<SectigoCertificate>>(HttpMethod.Get, $"api/ssl/v1?{qs}") ??
+                       new List<SectigoCertificate>();
+            acc.AddRange(page);
+            if (page.Count < pageSize) break;
+            position += pageSize;
+        }
 
-        // Construct the endpoint URL
-        var endpoint = "api/ssl/v1";
+        return acc;
+    }
 
-        // Send the PUT request
-        var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-        var response = _httpClient.PutAsync(endpoint, content).GetAwaiter().GetResult();
+    /// <summary>
+    ///     Core JSON sender (request body optional). Fully synchronous.
+    /// </summary>
+    private TOut? SendJson<TOut>(HttpMethod method, string relativeUrl, object? body = null)
+    {
+        using var req = new HttpRequestMessage(method, relativeUrl);
 
-        // Log the response status
-        _logger.Trace($"Received response with status code: {response.StatusCode}");
-        response.EnsureSuccessStatusCode();
+        if (body != null)
+        {
+            var json = JsonSerializer.Serialize(body, JsonOpts);
+            req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        }
 
-        // Deserialize the response JSON
-        var jsonResponse = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        _logger.Trace($"Response JSON: {jsonResponse}");
+        using var res = SendWithRetry(req);
+        var text = res.Content is null ? null : ReadString(res.Content);
 
-        return JsonSerializer.Deserialize<SectigoCertificateDetails>(jsonResponse, _jsonOptions)
-               ?? throw new InvalidOperationException("Failed to deserialize the updated certificate details.");
+        if (string.IsNullOrWhiteSpace(text))
+            return default;
+
+        try
+        {
+            return JsonSerializer.Deserialize<TOut>(text!, JsonOpts);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "JSON deserialization error for {Url}. Payload (truncated): {Snippet}",
+                relativeUrl, text!.Length > 512 ? text.Substring(0, 512) + "…" : text);
+            throw;
+        }
+    }
+
+    private HttpResponseMessage SendWithRetry(HttpRequestMessage request)
+    {
+        _ = request ?? throw new ArgumentNullException(nameof(request));
+
+        var attempt = 0;
+        var nextDelay = _baseDelay;
+
+        bool IsIdempotent(HttpMethod m)
+        {
+            return m == HttpMethod.Get || m == HttpMethod.Head || m == HttpMethod.Put || m == HttpMethod.Delete;
+        }
+
+        while (true)
+        {
+            attempt++;
+            var start = DateTimeOffset.UtcNow;
+
+            HttpResponseMessage? res = null;
+            Exception? sendEx = null;
+
+            try
+            {
+                res = _http.Send(request, HttpCompletionOption.ResponseHeadersRead);
+            }
+            catch (Exception ex)
+            {
+                sendEx = ex;
+            }
+
+            // Network failure -> retry as transient (respect attempt budget)
+            if (sendEx != null)
+            {
+                if (attempt > _maxRetries)
+                {
+                    Log.Error(sendEx, "Too many retries ({Attempt}/{Max}) for {Method} {Uri}.", attempt, _maxRetries,
+                        request.Method, request.RequestUri);
+                    throw new HttpRequestException(
+                        $"Network send failed after {attempt} attempts for {request.Method} {request.RequestUri}.",
+                        sendEx);
+                }
+
+                SleepWithJitter(ref nextDelay);
+                Log.Warn(sendEx, "Transient send error on attempt {Attempt} for {Method} {Uri}. Retrying.",
+                    attempt, request.Method, request.RequestUri);
+                continue;
+            }
+
+            // Success path
+            if (res!.IsSuccessStatusCode)
+            {
+                Log.Trace("HTTP {Status} in {Ms}ms for {Method} {Uri}",
+                    (int)res.StatusCode, (DateTimeOffset.UtcNow - start).TotalMilliseconds,
+                    request.Method, request.RequestUri);
+                return res; // caller disposes
+            }
+
+            // Decide whether to retry based on status
+            var sc = (int)res.StatusCode;
+            var retryable =
+                sc == 429 || // too many requests (rate limited)
+                sc == 503 || // service unavailable
+                sc == 408 || sc == 500 || sc == 502 || sc == 504; // classic transient errors
+
+            // For non-idempotent methods, only retry if explicitly rate-limited with Retry-After
+            if (!IsIdempotent(request.Method) && retryable && sc != 429)
+                retryable = false;
+
+            // Honor Retry-After (seconds or HTTP-date) if present
+            var retryAfter = ParseRetryAfter(res);
+            if (retryAfter > TimeSpan.Zero) retryable = true;
+
+            if (!retryable || attempt > _maxRetries)
+            {
+                // Read body fully for exception message; log truncated snippet
+                var reason = res.ReasonPhrase ?? string.Empty;
+                var fullBody = res.Content is null ? string.Empty : ReadString(res.Content);
+                var snippet = fullBody.Length > 2000 ? fullBody.Substring(0, 2000) + "…[truncated]" : fullBody;
+
+                string? reqId = null;
+                try
+                {
+                    if (!res.Headers.TryGetValues("x-request-id", out var v) || (reqId = v.FirstOrDefault()) is null)
+                        if (res.Headers.TryGetValues("request-id", out var v2))
+                            reqId = v2.FirstOrDefault();
+                }
+                catch
+                {
+                    /* ignore header parsing issues */
+                }
+
+                Log.Error(
+                    "HTTP {Status} not retryable or attempts exhausted ({Attempt}/{Max}). {Method} {Uri}. RequestId={ReqId}. Body={Body}",
+                    sc, attempt, _maxRetries, request.Method, request.RequestUri, reqId ?? "n/a", snippet);
+
+                // Dispose before throwing since we won't return it
+                res.Dispose();
+
+                throw new HttpRequestException(
+                    $"HTTP {sc} {reason} for {request.Method} {request.RequestUri}. RequestId={reqId}. Body: {fullBody}",
+                    null,
+                    (HttpStatusCode)sc);
+            }
+
+            // Sleep based on server guidance first
+            if (retryAfter > TimeSpan.Zero)
+            {
+                Log.Warn("Rate limited ({Status}). Honoring Retry-After={RetryAfter}. Attempt {Attempt}/{Max}.",
+                    sc, retryAfter, attempt, _maxRetries);
+                Thread.Sleep(retryAfter);
+            }
+            else
+            {
+                // Alternatively, respect X-RateLimit-Reset if available (epoch seconds)
+                var resetAt = ParseRateLimitReset(res);
+                if (resetAt > DateTimeOffset.UtcNow)
+                {
+                    var toWait = resetAt - DateTimeOffset.UtcNow;
+                    Log.Warn("Rate hint via X-RateLimit-Reset. Sleeping {Wait}. Attempt {Attempt}/{Max}.",
+                        toWait, attempt, _maxRetries);
+                    Thread.Sleep(toWait);
+                }
+                else
+                {
+                    // Exponential backoff + Full-Jitter
+                    SleepWithJitter(ref nextDelay);
+                }
+            }
+
+            // Dispose the non-success response before the next attempt
+            res.Dispose();
+        }
+    }
+
+    private void SleepWithJitter(ref TimeSpan nextDelay)
+    {
+        // Full-Jitter: sleep = random(0, min(cap, base * 2^attempt))
+        var cap = _maxDelay;
+        var max = nextDelay < cap ? nextDelay : cap;
+        var millis = _rng.Next(0, (int)Math.Max(1, max.TotalMilliseconds));
+        Thread.Sleep(TimeSpan.FromMilliseconds(millis));
+
+        // Increase for next time
+        var doubled = TimeSpan.FromMilliseconds(Math.Min(cap.TotalMilliseconds, nextDelay.TotalMilliseconds * 2.0));
+        nextDelay = doubled;
+    }
+
+    private static TimeSpan ParseRetryAfter(HttpResponseMessage res)
+    {
+        if (res.Headers.TryGetValues("Retry-After", out var values))
+        {
+            var ra = values.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(ra)) return TimeSpan.Zero;
+
+            // Seconds?
+            if (int.TryParse(ra.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var secs) && secs >= 0)
+                return TimeSpan.FromSeconds(secs);
+
+            // HTTP-date?
+            if (DateTimeOffset.TryParseExact(
+                    ra.Trim(),
+                    new[] { "r", "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'" }, // RFC1123
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out var when) && when > DateTimeOffset.UtcNow)
+                return when - DateTimeOffset.UtcNow;
+        }
+
+        return TimeSpan.Zero;
+    }
+
+    private static DateTimeOffset ParseRateLimitReset(HttpResponseMessage res)
+    {
+        // Optional: X-RateLimit-Reset (epoch seconds)
+        if (res.Headers.TryGetValues("X-RateLimit-Reset", out var vals))
+        {
+            var v = vals.FirstOrDefault();
+            if (long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var epoch) && epoch > 0)
+                try
+                {
+                    return DateTimeOffset.FromUnixTimeSeconds(epoch);
+                }
+                catch
+                {
+                    /* ignore */
+                }
+        }
+
+        return DateTimeOffset.MinValue;
+    }
+
+    private static string ReadString(HttpContent content)
+    {
+        return content.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty;
+    }
+}
+
+/// <summary>
+///     DI registration helpers.
+/// </summary>
+public static class SectigoServiceCollectionExtensions
+{
+    public static IServiceCollection AddSectigoClient(this IServiceCollection services, string baseAddress)
+    {
+        services.AddHttpClient<SectigoClient>(client =>
+        {
+            client.BaseAddress = new Uri(baseAddress);
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        });
+        return services;
     }
 }
