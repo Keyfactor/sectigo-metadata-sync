@@ -27,7 +27,7 @@
       "keyfactorMessage": null,
       "keyfactorOptions": null,
       "keyfactorDefaultValue": null,
-      "keyfactorDisplayOrder": 0,
+      "keyfactorDisplayOrder": 1,
       "keyfactorCaseSensitive": false
     },
     {
@@ -41,7 +41,7 @@
       "keyfactorMessage": null,
       "keyfactorOptions": null,
       "keyfactorDefaultValue": null,
-      "keyfactorDisplayOrder": 0,
+      "keyfactorDisplayOrder": 2,
       "keyfactorCaseSensitive": false
     }
   ],
@@ -50,14 +50,14 @@
       "sectigoFieldName": "Special String",
       "keyfactorMetadataFieldName": "TestField",
       "keyfactorDescription": "Just an empty test field.",
-      "keyfactorDataType": 7,
+      "keyfactorDataType": 1,
       "keyfactorHint": "Enter test data",
       "keyfactorValidation": null,
       "keyfactorEnrollment": 0,
       "keyfactorMessage": null,
       "keyfactorOptions": null,
       "keyfactorDefaultValue": null,
-      "keyfactorDisplayOrder": 0,
+      "keyfactorDisplayOrder": 3,
       "keyfactorCaseSensitive": false
     },
     {
@@ -71,7 +71,7 @@
       "keyfactorMessage": null,
       "keyfactorOptions": null,
       "keyfactorDefaultValue": null,
-      "keyfactorDisplayOrder": 0,
+      "keyfactorDisplayOrder": 4,
       "keyfactorCaseSensitive": false
     }
   ]
