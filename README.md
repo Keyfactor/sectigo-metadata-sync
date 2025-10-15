@@ -5,9 +5,9 @@
 <p align="center">
   <!-- Badges -->
 <img src="https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square" alt="Integration Status: production" />
-<a href="https://github.com/Keyfactor/sectigo-metadata-sync-dev/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync-dev?style=flat-square" alt="Release" /></a>
-<img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync-dev?style=flat-square" alt="Issues" />
-<img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync-dev/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
+<a href="https://github.com/Keyfactor/sectigo-metadata-sync/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Release" /></a>
+<img src="https://img.shields.io/github/issues/Keyfactor/sectigo-metadata-sync?style=flat-square" alt="Issues" />
+<img src="https://img.shields.io/github/downloads/Keyfactor/sectigo-metadata-sync/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
 </p>
 
 <p align="center">
