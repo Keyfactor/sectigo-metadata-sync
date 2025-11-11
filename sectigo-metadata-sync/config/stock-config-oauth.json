@@ -4,8 +4,8 @@
     "sectigoPassword": "*****",
     "sectigoCustomerUri": "test-partner",
     "sectigoAPIUrl": "https://cert-manager.com",
-    "keyfactorLogin": "DOMAIN\\username",
-    "keyfactorPassword": "******",
+    "keyfactorLogin": null,
+    "keyfactorPassword": null,
     "keyfactorAPIUrl": "https://test.local/Keyfactor/API/",
     "keyfactorDateFormat": "M/d/yyyy h:mm:ss tt",
     "importAllCustomFields": "false",
@@ -16,6 +16,15 @@
     "sectigoPageSize": 25,
     "keyfactorPageSize": 100,
     "keyfactorAddedSince": null,
-    "enableTruncation": null
+    "enableTruncation": null,
+    "keyfactorOAuth": {
+      "tokenUrl": "https://test.us.auth0.com/oauth/token",
+      "clientId": "******",
+      "clientSecret": "*******",
+      "scopesCsv": "",
+      "audience": "https://test.us.auth0.com/api/v2/",
+      "requestedWith": "APIClient",
+      "refreshSkewSeconds": 60
+    }
   }
 }

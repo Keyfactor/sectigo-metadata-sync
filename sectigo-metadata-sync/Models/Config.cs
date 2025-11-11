@@ -5,7 +5,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
 // and limitations under the License.
 
+using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace SectigoMetadataSync.Models;
 
@@ -26,6 +28,22 @@ public class Config
     public bool enableDisabledFieldSync { get; set; } = false;
     public int sectigoPageSize { get; set; } = 25;
     public int keyfactorPageSize { get; set; } = 100;
+    public KeyfactorOAuthOptions? KeyfactorOAuth { get; init; }
+    public bool UseKeyfactorOAuth { get; set; }
+    public string? keyfactorAddedSince { get; set; }
+    [JsonIgnore] public DateTimeOffset? KeyfactorAddedSinceUtc { get; set; }
+    public bool enableTruncation { get; set; } 
+}
+
+public sealed class KeyfactorOAuthOptions
+{
+    public string TokenUrl { get; init; } = string.Empty;
+    public string ClientId { get; init; } = string.Empty;
+    public string ClientSecret { get; init; } = string.Empty;
+    public string? ScopesCsv { get; init; }
+    public string? Audience { get; init; }
+    public string RequestedWith { get; init; } = "APIClient";
+    public int RefreshSkewSeconds { get; init; } = 120;
 }
 
 public class ManualField

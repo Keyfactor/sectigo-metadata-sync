@@ -30,7 +30,7 @@ public class KeyfactorMetadataField
 /// <summary>
 ///     Represents the data types for Keyfactor metadata fields.
 /// </summary>
-public enum MetadataDataType
+public enum KeyfactorMetadataDataType
 {
     String = 1,
     Integer = 2,
