@@ -15,6 +15,8 @@ public class UnifiedFormatField
     public string SectigoFieldName { get; set; } = string.Empty;
     public string KeyfactorMetadataFieldName { get; set; } = string.Empty;
     public string KeyfactorDescription { get; set; } = string.Empty;
+    public int SectigoMetadataFieldID { get; set; } = 0;
+    public CustomFieldInputType SectigoCustomFieldType { get; set; }
     public int KeyfactorDataType { get; set; }
     public string? KeyfactorHint { get; set; }
     public string? KeyfactorValidation { get; set; }
@@ -24,7 +26,7 @@ public class UnifiedFormatField
     public string? KeyfactorDefaultValue { get; set; }
     public int KeyfactorDisplayOrder { get; set; }
     public bool KeyfactorCaseSensitive { get; set; } = false; // Default to false
-    public int KeyfactorMetadataFieldId { get; set; } = 0; // Default to 0 (not set)
+    public int KeyfactorMetadataFieldId { get; set; } // Default to 0 (not set)
     public UnifiedFieldType ToolFieldType { get; set; } = UnifiedFieldType.Custom; // Default to Custom
 }
 
